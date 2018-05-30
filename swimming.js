@@ -102,7 +102,5 @@ scrape('https://www.bvsport.nl/accommodatie/60/zwembad-de-blauwe-golf', (schedul
 
   scrape('https://www.bvsport.nl/accommodatie/62/zwembad-kalverdijkje', (schedule) => {
     output(schedule, '\nKalverdijkje');
-
-    console.log('\nZondag Kalverdijkje is alleen oefenzwemmen.');
   });
 });
