@@ -85,6 +85,11 @@ function outputSchedule(schedule, name) {
 
   console.log(name);
 
+  if (!schedule) {
+    console.log(indent('?'));
+    return;
+  }
+
   Object.keys(schedule).forEach((day) => {
     console.log(indent(day));
 
