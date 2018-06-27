@@ -1,28 +1,40 @@
 const https = require('https');
 const JSDOM = require('jsdom').JSDOM;
 
-function scrape(url, callback) {
-  /* Requests the document and calls the callback with the schedule if the
-  schedule is found. */
+const SITES = [
+  {
+    name: 'Blauwe Golf',
+    url: 'https://www.bvsport.nl/accommodatie/60/zwembad-de-blauwe-golf'
+  },
+  {
+    name: 'Kalverdijkje',
+    url: 'https://www.bvsport.nl/accommodatie/62/zwembad-kalverdijkje'
+  }
+];
+const POOL = 'Wedstrijdbad';
+
+function getPage(url, callback) {
+  /* Requests the document and calls the callback with the data. */
 
   https.get(url, (res) => {
+    let data = '';
+
     res.on('data', (chunk) => {
-      const schedule = parse(chunk);
+      data += chunk;
+    });
 
-      if (!schedule) {
-        return;
-      }
-
-      callback(schedule);
+    res.on('end', () => {
+      callback(data);
     });
   });
 }
 
-function parse(chunk) {
-  /* Parses the document chunk and returns the schedule or null if no schedule
-  is found. */
+function scrapePage(data) {
+  /* Scrapes schedule data from the document data and returns either the
+  schedule or null if no schedule is found. */
 
-  const dom = new JSDOM(chunk);
+  const dom = new JSDOM(data);
+  // assume day headings are h4 elements
   const h4Els = dom.window.document.getElementsByTagName('h4');
 
   if (h4Els.length === 0) {
@@ -42,44 +54,45 @@ function parse(chunk) {
   Array.from(h4Els).every((h4El) => {
     const heading = h4El.textContent;
 
-    if (heading === 'Tarieven') {  // this heading is assumed to be after the schedule
+    // assume non-day headings come after all the days
+    if (!(heading in schedule)) {
+      // stop looking for more days
       return false;
     }
 
-    Array.from(h4El.parentNode.parentNode.getElementsByTagName('h5')).forEach((h5El) => {
-      if (h5El.textContent !== 'Wedstrijdbad') {
-        return;
-      }
-
-      Array.from(h5El.parentNode.getElementsByTagName('div')).forEach((divEl) => {
-        const line = divEl.textContent.trim();
-
-        if (!line) {
-          return;
-        }
-
-        schedule[heading].push(line);
-      });
+    // assume pool headings are h5 elements
+    const poolEl = Array.from(h4El.parentNode.parentNode.getElementsByTagName('h5')).find((h5El) => {
+      return (h5El.textContent === POOL);
     });
 
-    // look for more opening hours
+    // assume divs contain the hours
+    Array.from(poolEl.parentNode.getElementsByTagName('div')).forEach((divEl) => {
+      const line = divEl.textContent.trim();
+
+      // add found hours to this day
+      schedule[heading].push(line);
+    });
+
+    // look for more days on this page
     return true;
   });
 
   return schedule;
 }
 
-function output(schedule, name) {
+function outputSchedule(schedule, name) {
   /* Prints the name and the schedule. */
 
   console.log(name);
 
   Object.keys(schedule).forEach((day) => {
+    console.log(indent(day));
+
     if (schedule[day].length === 0) {
+      console.log(indent('-', 2));
       return;
     }
 
-    console.log(indent(day));
     schedule[day].forEach((time) => {
       console.log(indent(time, 2));
     });
@@ -87,6 +100,9 @@ function output(schedule, name) {
 }
 
 function indent(text, depth) {
+  /* Adds indentation to given text with optional given depth and returns
+  indented text. */
+
   const indentation = '  ';
 
   do {
@@ -97,10 +113,33 @@ function indent(text, depth) {
   return text;
 }
 
-scrape('https://www.bvsport.nl/accommodatie/60/zwembad-de-blauwe-golf', (schedule) => {
-  output(schedule, 'Blauwe Golf');
+function scrapeAll(sites) {
+  const schedules = [];
+  let loading = sites.length;
 
-  scrape('https://www.bvsport.nl/accommodatie/62/zwembad-kalverdijkje', (schedule) => {
-    output(schedule, '\nKalverdijkje');
+  sites.forEach((site, index) => {
+    getPage(site.url, (data) => {
+      const schedule = scrapePage(data);
+
+      schedules[index] = {name: site.name, data: schedule};
+
+      loading--;
+      if (loading === 0) {
+        outputAll(schedules);
+      }
+    });
   });
-});
+}
+
+function outputAll(schedules) {
+  schedules.forEach((schedule, index) => {
+    if (index > 0) {
+      // separate by new line
+      console.log();
+    }
+
+    outputSchedule(schedule.data, schedule.name);
+  });
+}
+
+scrapeAll(SITES);
