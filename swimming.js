@@ -83,10 +83,12 @@ function scrapePage(data) {
 function outputSchedule(schedule, name) {
   /* Prints the name and the schedule. */
 
+  const none = '-';
+
   console.log(name);
 
   if (!schedule) {
-    console.log(indent('?'));
+    console.log(indent(none));
     return;
   }
 
@@ -94,7 +96,7 @@ function outputSchedule(schedule, name) {
     console.log(indent(day));
 
     if (schedule[day].length === 0) {
-      console.log(indent('-', 2));
+      console.log(indent(none, 2));
       return;
     }
 
